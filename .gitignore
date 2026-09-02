@@ -1,0 +1,14 @@
+# macOS / editores
+.DS_Store
+*.swp
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rout
+
+# Python
+__pycache__/
+*.pyc
+.venv/
