@@ -4,13 +4,18 @@
 # Flujo: importar datos -> estimar lambda y mu -> probar Poisson y exponencial ->
 #        medidas teoricas M/M/1 -> simular la cola con queuecomputer -> comparar.
 
-library(readxl)
-library(dplyr)
-library(lubridate)
-library(ggplot2)
-library(queuecomputer)
+suppressPackageStartupMessages({
+  library(readxl)
+  library(dplyr)
+  library(lubridate)
+  library(ggplot2)
+  library(queuecomputer)
+})
 
 ALPHA <- 0.05   # nivel de significancia de las pruebas de bondad de ajuste
+
+# Encabezado de seccion para una salida mas ordenada.
+seccion <- function(txt) cat(sprintf("\n================  %s  ================\n", txt))
 
 
 # =============================================================================
@@ -38,7 +43,7 @@ stopifnot(all(obs$tiempo_espera_min  >= 0,  na.rm = TRUE))
 obs <- obs %>% filter(!is.na(tiempo_servicio_min))
 
 n_serv <- nrow(obs)
-cat("---- 1. DATOS ----\n")
+seccion("1. DATOS")
 cat(sprintf("Pasajeros observados : %d\n", n_serv))
 cat(sprintf("Intervalos de conteo : %d  (ventana %g min)\n", nrow(intv), sum(intv$duracion_min)))
 print(summary(obs[c("tiempo_espera_min", "tiempo_servicio_min", "tiempo_sistema_min")]))
@@ -54,7 +59,7 @@ lambda <- total_llegadas / tiempo_total_min        # llegadas / minuto
 mu     <- 1 / mean(obs$tiempo_servicio_min)        # 1 / (tiempo medio de servicio)
 rho    <- lambda / mu                              # utilizacion; el modelo solo aplica si rho < 1
 
-cat("\n---- 2. PARAMETROS ----\n")
+seccion("2. PARAMETROS")
 cat(sprintf("lambda = %.4f pax/min = %.2f pax/hora\n", lambda, lambda * 60))
 cat(sprintf("mu     = %.4f pax/min = %.2f pax/hora  (servicio medio = %.4f min)\n",
             mu, mu * 60, mean(obs$tiempo_servicio_min)))
@@ -66,7 +71,7 @@ cat(sprintf("rho    = %.4f  -> %s\n", rho,
 # 3. Bondad de ajuste - Poisson
 #    H0: el numero de llegadas por intervalo sigue una Poisson.  H1: no.
 # =============================================================================
-cat("\n---- 3. PRUEBA DE POISSON (chi-cuadrado) ----\n")
+seccion("3. PRUEBA DE BONDAD DE AJUSTE - POISSON")
 
 # La prueba se hace sobre el CONTEO de llegadas por intervalo (0,1,2,... por bloque),
 # no sobre los interarribos: Poisson describe cuantos eventos caen en un intervalo
@@ -106,7 +111,7 @@ chi2_p <- sum((grp_o - grp_e)^2 / grp_e)
 gl_p   <- length(grp_o) - 1 - 1     # clases - 1 - (1 parametro estimado)
 disp   <- var(x) / mean(x)          # indice de dispersion: Poisson ideal ~ 1
 
-print(data.frame(categoria = grp_lab, observado = grp_o, esperado = round(grp_e, 3)))
+print(data.frame(categoria = grp_lab, observado = grp_o, esperado = round(grp_e, 3)), row.names = FALSE)
 if (gl_p < 1) {
   cat(sprintf("Chi2 = %.4f | gl = %d\n", chi2_p, gl_p))
   cat(sprintf("Prueba no concluyente: con %d intervalos las clases se colapsan a gl <= 0.\n", N))
@@ -127,13 +132,13 @@ if (disp < 0.75) cat("  Subdispersion: las llegadas son mas regulares que una Po
 # 4. Bondad de ajuste - Exponencial (tiempos de servicio)
 #    H0: los tiempos de servicio siguen una exponencial.  H1: no.
 # =============================================================================
-cat("\n---- 4. PRUEBA EXPONENCIAL ----\n")
+seccion("4. PRUEBA DE BONDAD DE AJUSTE - EXPONENCIAL")
 
 ts   <- obs$tiempo_servicio_min
 rate <- 1 / mean(ts)
 
 # Kolmogorov-Smirnov (el rate se estima de la muestra, asi que el KS es conservador).
-ks <- ks.test(ts, "pexp", rate = rate)
+ks <- suppressWarnings(ks.test(ts, "pexp", rate = rate))   # ignora el aviso por empates (redondeo)
 cat(sprintf("Kolmogorov-Smirnov: D = %.4f | valor-p = %.4f\n", ks$statistic, ks$p.value))
 
 # Chi-cuadrado con clases equiprobables bajo la exponencial (misma frecuencia esperada).
@@ -157,7 +162,7 @@ cat(sprintf("Decision (alpha = %.2f): %s\n", ALPHA,
 # =============================================================================
 # 5. Medidas de desempeno teoricas (formulas M/M/1)
 # =============================================================================
-cat("\n---- 5. MEDIDAS TEORICAS M/M/1 (minutos) ----\n")
+seccion("5. MEDIDAS TEORICAS M/M/1  (minutos)")
 
 P0 <- 1 - rho
 Lq <- lambda^2 / (mu * (mu - lambda))
@@ -168,7 +173,7 @@ Ws <- 1 / (mu - lambda)
 print(data.frame(
   medida = c("rho", "P0", "Lq", "Ls", "Wq (min)", "Ws (min)"),
   valor  = round(c(rho, P0, Lq, Ls, Wq, Ws), 4)
-))
+), row.names = FALSE)
 cat(sprintf("P(Wq > 5 min) = %.4f | P(Ws > 5 min) = %.4f\n",
             rho * exp(-mu * (1 - rho) * 5), exp(-mu * (1 - rho) * 5)))
 
@@ -176,7 +181,7 @@ cat(sprintf("P(Wq > 5 min) = %.4f | P(Ws > 5 min) = %.4f\n",
 # =============================================================================
 # 6. Medidas con queuecomputer y medidas observadas en campo
 # =============================================================================
-cat("\n---- 6. MEDIDAS CON queuecomputer Y DE CAMPO ----\n")
+seccion("6. MEDIDAS CON queuecomputer Y MEDIDAS DE CAMPO")
 
 # Entradas para queue(): llegadas acumuladas y tiempos de servicio, en minutos.
 interarrival_times <- obs$interarribo_min
@@ -238,7 +243,7 @@ cat(sprintf("Tasa efectiva de salida = %.4f pax/min (%.2f /h)\n", throughput, th
 # =============================================================================
 # 7. Comparacion: teoricas vs. queuecomputer vs. campo
 # =============================================================================
-cat("\n---- 7. COMPARACION ----\n")
+seccion("7. COMPARACION: TEORICA vs queuecomputer vs CAMPO")
 
 comp <- data.frame(
   medida        = c("rho", "P0", "Lq", "Ls", "Wq (min)", "Ws (min)"),
