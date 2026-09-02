@@ -61,6 +61,8 @@ rho    <- lambda / mu                              # utilizacion; el modelo solo
 
 seccion("2. PARAMETROS")
 cat(sprintf("lambda = %.4f pax/min = %.2f pax/hora\n", lambda, lambda * 60))
+cat(sprintf("  (verificacion: interarribo medio = %.3f min)\n",
+            mean(obs$interarribo_min, na.rm = TRUE)))
 cat(sprintf("mu     = %.4f pax/min = %.2f pax/hora  (servicio medio = %.4f min)\n",
             mu, mu * 60, mean(obs$tiempo_servicio_min)))
 cat(sprintf("rho    = %.4f  -> %s\n", rho,
@@ -80,6 +82,10 @@ x       <- intv$numero_llegadas_intervalo
 N       <- length(x)
 lam_int <- mean(x)          # lambda estimada por intervalo
 kmax    <- max(x)
+
+cat(sprintf("Llegadas por intervalo: %s\n", paste(x, collapse = ", ")))
+cat(sprintf("  minimo = %d | maximo = %d | media = %.3f | varianza = %.3f\n",
+            min(x), max(x), mean(x), var(x)))
 
 # Frecuencias observadas y esperadas por Poisson (la ultima clase acumula la cola).
 obs_freq <- tabulate(x + 1, nbins = kmax + 1)
