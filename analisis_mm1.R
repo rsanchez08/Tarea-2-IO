@@ -3,20 +3,55 @@
 #  Sistema: abordaje de pasajeros en la puerta del bus (ruta La Canada - Alajuela)
 #  Tarea 2 grupal | Ingenieria en Computacion
 #
-#  Que hace este script, de principio a fin:
-#    1. Importa el Excel y calcula las variables de tiempo por pasajero.
-#    2. Estima los parametros del modelo: lambda (llegadas) y mu (servicio).
-#    3. Prueba si las llegadas por intervalo se ajustan a una Poisson (chi-cuadrado).
-#    4. Prueba si los tiempos de servicio se ajustan a una exponencial (KS + chi-cuadrado).
-#    5. Calcula las medidas de desempeno TEORICAS con las formulas M/M/1.
-#    6. Calcula las medidas COMPUTACIONALES con queuecomputer::queue() (inciso 11)
-#    7. Compara: teorico (formulas) vs computacional (queuecomputer) vs observado en campo.
-#    8. Genera 4 figuras.
+#  QUE HACE ESTE SCRIPT  (y a que inciso del enunciado corresponde cada bloque):
+#
+#    Bloque 1 - IMPORTACION Y PREPARACION DE DATOS ............... inciso 8
+#      read_excel() -> arrange(fecha, hora_llegada) -> mutate() de las 4
+#      variables de tiempo con difftime(..., units = "mins"):
+#      interarribo_min, tiempo_espera_min, tiempo_servicio_min, tiempo_sistema_min.
+#      Incluye conversion a POSIXct y control de calidad (stopifnot).
+#
+#    Bloque 2 - ESTIMACION DE LOS PARAMETROS .................... inciso 9
+#      lambda = (suma de llegadas) / (tiempo total observado)          (9.1)
+#      mu     = 1 / (tiempo medio de servicio)                          (9.2)
+#      rho    = lambda / mu   y verificacion de estabilidad rho < 1     (9)
+#
+#    Bloque 3 - BONDAD DE AJUSTE: POISSON ...................... inciso 10.1
+#      chi-cuadrado sobre el NUMERO DE LLEGADAS POR INTERVALO: lambda
+#      estimada, frecuencias observadas y esperadas, agrupacion de
+#      categorias, estadistico, grados de libertad, valor p (alpha = 0.05),
+#      decision e indice de dispersion.
+#
+#    Bloque 4 - BONDAD DE AJUSTE: EXPONENCIAL ................. inciso 10.2
+#      Kolmogorov-Smirnov + chi-cuadrado con clases equiprobables sobre los
+#      TIEMPOS DE SERVICIO: rate estimada, estadistico, valor p,
+#      coeficiente de variacion, decision.  (Histograma -> Bloque 8.)
+#
+#    Bloque 5 - MEDIDAS DE DESEMPENO TEORICAS (M/M/1) ........... inciso 12
+#      rho, P0 = 1 - rho, Lq = lambda^2/[mu(mu-lambda)], Ls = lambda/(mu-lambda),
+#      Wq = lambda/[mu(mu-lambda)], Ws = 1/(mu-lambda).
+#
+#    Bloque 6 - MEDIDAS COMPUTACIONALES Y DE CAMPO .......... incisos 11 y 12
+#      (11) queuecomputer::queue(): arrivals <- cumsum(interarrival_times);
+#           queue(arrivals, service, servers = 1); de ahi se reconstruyen
+#           tiempo_espera, inicio_servicio y tiempo_sistema de cada pasajero.
+#      (12) medidas OBSERVADAS en el registro: cola maxima y promedio,
+#           % de unidades que esperaron, tasa efectiva de salida (throughput).
+#
+#    Bloque 7 - COMPARACION ..................................... inciso 12
+#      Tabla de 3 columnas: TEORICAS (formulas) / COMPUTACIONALES (queuecomputer)
+#      / OBSERVADAS EN CAMPO, con la interpretacion de las diferencias.
+#
+#    Bloque 8 - FIGURAS ..................................... incisos 10 y 12
+#      1) histograma del tiempo de servicio + exponencial ajustada (10.2)
+#      2) llegadas por intervalo: observado vs. Poisson (10.1)
+#      3) numero de pasajeros en el sistema a lo largo de la sesion
+#      4) Lq, Ls, Wq, Ws: teoricas vs. computacionales vs. campo (12)
 #
 #  Requisitos (inciso 11 del enunciado):
-#    install.packages(c("queuecomputer","readxl","dplyr","ggplot2","lubridate"))
+#    install.packages(c("queuecomputer","readxl","dplyr","lubridate","ggplot2"))
 #
-#  Ejecutar desde la carpeta que contiene 'datos_campo.xlsx':
+#  Ejecutar desde la carpeta que contiene 'datos_campo.xlsx' (rutas relativas):
 #    Rscript analisis_mm1.R
 # ==============================================================================
 
