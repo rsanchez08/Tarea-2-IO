@@ -138,6 +138,8 @@ mu   <- 1 / media_servicio                                # pasajeros por minuto
 mu_h <- mu * 60                                           # pasajeros por hora
 
 # --- 2.3 Factor de utilizacion rho y condicion de estabilidad ---------------
+#     rho = lambda / mu   (inciso 9 y inciso 12).  Si rho >= 1 el sistema NO es
+#     estable y NO se deben interpretar los indicadores estacionarios del M/M/1.
 rho <- lambda / mu                                        # fraccion del tiempo que el servidor esta ocupado
 
 cat("\n---- 2. PARAMETROS ----\n")
@@ -155,6 +157,13 @@ cat(sprintf("rho    = %.4f  -> %s\n", rho,
 # ==============================================================================
 cat("\n---- 3. PRUEBA DE POISSON (chi-cuadrado) ----\n")
 
+# IMPORTANTE (inciso 9.1 / 10.1): la prueba de Poisson se hace sobre el
+# NUMERO DE LLEGADAS POR INTERVALO (variable de CONTEO: 0, 1, 2, ... por bloque),
+# NO sobre los tiempos de interarribo individuales.
+#   - Poisson  = cuantos eventos caen en un intervalo de tiempo fijo  (discreta)
+#   - Exponencial = tiempo continuo ENTRE dos eventos consecutivos    (continua)
+# Son dos caras del mismo proceso; aqui usamos la hoja 'llegadas_intervalo'
+# (columna numero_llegadas_intervalo). Los interarribos se usan en el Bloque 6.
 x       <- intv$numero_llegadas_intervalo   # vector de conteos: pasajeros en cada bloque de 10 min
 N       <- length(x)                        # numero de intervalos
 lam_int <- mean(x)                          # lambda estimada POR INTERVALO (promedio de conteos)
@@ -321,10 +330,10 @@ resultados <- data.frame(
 # --- 6.4 Medidas que produce queue()  ->  columna (Q) --------------------------
 #     queue() modela un servidor SIEMPRE DISPONIBLE. Solo captura la pequena cola
 #     "pasajero-detras-de-pasajero" en la puerta, NO la espera por que llegue el bus.
-Wq_Q <- mean(resultados$tiempo_espera)
-Ws_Q <- mean(resultados$tiempo_sistema)
-Lq_Q <- lambda * Wq_Q                                 # Ley de Little (L = lambda * W)
-Ls_Q <- lambda * Ws_Q
+Wq_queue <- mean(resultados$tiempo_espera)
+Ws_queue <- mean(resultados$tiempo_sistema)
+Lq_queue <- lambda * Wq_queue                                 # Ley de Little (L = lambda * W)
+Ls_queue <- lambda * Ws_queue
 
 # Desfase esperado: como queue() no "espera al bus", su inicio_servicio queda
 # muy por debajo del registrado en campo. Se muestra como diagnostico, no como error.
@@ -335,10 +344,10 @@ cat("  -> queue() (servidor siempre activo) NO reproduce la espera por el bus.\n
 
 # --- 6.5 Medidas OBSERVADAS DIRECTAMENTE en el registro de campo  ->  columna (C)
 #     Aqui la espera SI incluye el tiempo que el pasajero aguarda a que llegue su bus.
-Wq_C <- mean(obs$tiempo_espera_min)
-Ws_C <- mean(obs$tiempo_sistema_min)
-Lq_C <- lambda * Wq_C
-Ls_C <- lambda * Ws_C
+Wq_campo <- mean(obs$tiempo_espera_min)
+Ws_campo <- mean(obs$tiempo_sistema_min)
+Lq_campo <- lambda * Wq_campo
+Ls_campo <- lambda * Ws_campo
 
 # Longitud maxima de la cola REAL (desde los tiempos registrados):
 # +1 cuando un pasajero llega a la parada, -1 cuando empieza a abordar.
@@ -356,9 +365,9 @@ pct_espera <- mean(obs$tiempo_espera_min > 1 / 60) * 100   # % de pasajeros que 
 throughput <- n_serv / tiempo_total_min                    # tasa efectiva de salida (pax/min)
 
 cat(sprintf("\n(Q) queue()  : Wq = %.4f min | Ws = %.4f min | Lq = %.4f | Ls = %.4f\n",
-            Wq_Q, Ws_Q, Lq_Q, Ls_Q))
+            Wq_queue, Ws_queue, Lq_queue, Ls_queue))
 cat(sprintf("(C) campo    : Wq = %.4f min | Ws = %.4f min | Lq = %.4f | Ls = %.4f\n",
-            Wq_C, Ws_C, Lq_C, Ls_C))
+            Wq_campo, Ws_campo, Lq_campo, Ls_campo))
 cat(sprintf("Cola media observada (temporal) = %.2f | Cola maxima observada = %d\n", Lq_time, Lmax))
 cat(sprintf("%% de pasajeros que tuvieron que esperar = %.1f %%\n", pct_espera))
 cat(sprintf("Tasa efectiva de salida = %.4f pax/min (%.2f /h)\n", throughput, throughput * 60))
@@ -375,8 +384,8 @@ cat("\n---- 7. COMPARACION  T(teoricas) vs Q(computacionales, queuecomputer) vs 
 comp <- data.frame(
   medida         = c("rho", "P0", "Lq", "Ls", "Wq (min)", "Ws (min)"),
   T_teorica      = c(rho, P0, Lq, Ls, Wq, Ws),
-  Q_computacional= c(throughput / mu, P0, Lq_Q, Ls_Q, Wq_Q, Ws_Q),
-  C_campo        = c(rho, P0, Lq_C, Ls_C, Wq_C, Ws_C)
+  Q_computacional= c(throughput / mu, P0, Lq_queue, Ls_queue, Wq_queue, Ws_queue),
+  C_campo        = c(rho, P0, Lq_campo, Ls_campo, Wq_campo, Ws_campo)
 )
 comp_print <- comp
 comp_print[-1] <- lapply(comp_print[-1], round, 4)
@@ -384,7 +393,7 @@ print(comp_print, row.names = FALSE)
 cat("\nInterpretacion:\n")
 cat("  * rho y P0 coinciden en las tres (lambda y mu bien estimadas).\n")
 cat("  * (T) y (Q) dan una espera de SEGUNDOS: solo ven la cola en la puerta.\n")
-cat("  * (C) da ~", sprintf("%.1f", Wq_C), "min: el pasajero espera sobre todo A QUE LLEGUE EL BUS.\n", sep = "")
+cat("  * (C) da ~", sprintf("%.1f", Wq_campo), "min: el pasajero espera sobre todo A QUE LLEGUE EL BUS.\n", sep = "")
 cat("  * El M/M/1 NO modela esa espera (servidor con 'vacaciones' entre buses):\n")
 cat("    la espera de campo ~ mitad del intervalo entre buses (headway).\n")
 
