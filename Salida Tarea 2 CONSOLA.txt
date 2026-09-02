@@ -1,0 +1,74 @@
+Last login: Wed Sep  2 01:58:25 on ttys000
+rsanchez@Renes-MacBook-Air-M2 Tarea-2-IO % Rscript analisis_mm1.R                             
+
+
+================  1. DATOS  ================
+Pasajeros observados : 85
+Intervalos de conteo : 15  (ventana 150 min)
+ tiempo_espera_min tiempo_servicio_min tiempo_sistema_min
+ Min.   : 1.667    Min.   :0.2000      Min.   : 2.000    
+ 1st Qu.: 4.117    1st Qu.:0.3333      1st Qu.: 4.450    
+ Median : 5.667    Median :0.3333      Median : 6.167    
+ Mean   : 5.622    Mean   :0.4000      Mean   : 6.022    
+ 3rd Qu.: 6.833    3rd Qu.:0.4333      3rd Qu.: 7.267    
+ Max.   :11.667    Max.   :0.6667      Max.   :11.867    
+
+================  2. PARAMETROS  ================
+lambda = 0.5667 pax/min = 34.00 pax/hora
+  (verificacion: interarribo medio = 1.718 min)
+mu     = 2.5000 pax/min = 150.00 pax/hora  (servicio medio = 0.4000 min)
+rho    = 0.2267  -> estable (rho < 1)
+
+================  3. PRUEBA DE BONDAD DE AJUSTE - POISSON  ================
+Llegadas por intervalo: 11, 13, 9, 11, 6, 1, 1, 5, 3, 7, 4, 4, 5, 2, 3
+  minimo = 1 | maximo = 13 | media = 5.667 | varianza = 14.381
+ categoria observado esperado
+       0-5         9    7.509
+        6+         6    7.491
+Chi2 = 0.5930 | gl = 0
+Prueba no concluyente: con 15 intervalos las clases se colapsan a gl <= 0.
+Se toma el indice de dispersion como referencia.
+Indice de dispersion (var/media) = 2.538
+  Sobredispersion: las llegadas ocurren en lotes, no como Poisson.
+
+================  4. PRUEBA DE BONDAD DE AJUSTE - EXPONENCIAL  ================
+Kolmogorov-Smirnov: D = 0.4487 | valor-p = 0.0000
+Chi2 (6 clases) = 199.1176 | gl = 4 | valor-p = 0.0000
+Coeficiente de variacion = 0.324  (una exponencial tiene CV = 1)
+Decision (alpha = 0.05): se rechaza H0 -> no compatible con exponencial
+
+================  5. MEDIDAS TEORICAS M/M/1  (minutos)  ================
+   medida  valor
+      rho 0.2267
+       P0 0.7733
+       Lq 0.0664
+       Ls 0.2931
+ Wq (min) 0.1172
+ Ws (min) 0.5172
+P(Wq > 5 min) = 0.0000 | P(Ws > 5 min) = 0.0001
+
+================  6. MEDIDAS CON queuecomputer Y MEDIDAS DE CAMPO  ================
+Desfase medio queue() vs campo en el inicio de servicio: 5.53 min
+queuecomputer : Wq = 0.0957 min | Ws = 0.4957 min | Lq = 0.0542 | Ls = 0.2809
+campo         : Wq = 5.6222 min | Ws = 6.0222 min | Lq = 3.1859 | Ls = 3.4126
+Cola media observada = 3.24 | cola maxima observada = 15
+Pasajeros que esperaron = 100.0 %
+Tasa efectiva de salida = 0.5667 pax/min (34.00 /h)
+
+================  7. COMPARACION: TEORICA vs queuecomputer vs CAMPO  ================
+   medida teorica queuecomputer  campo
+      rho  0.2267        0.2267 0.2267
+       P0  0.7733        0.7733 0.7733
+       Lq  0.0664        0.0542 3.1859
+       Ls  0.2931        0.2809 3.4126
+ Wq (min)  0.1172        0.0957 5.6222
+ Ws (min)  0.5172        0.4957 6.0222
+
+Interpretacion:
+  rho y P0 coinciden en las tres: lambda y mu estan bien estimadas.
+  Las formulas y queuecomputer dan una espera de segundos (solo la fila en la puerta).
+  En campo la espera es de ~5.6 min: el pasajero aguarda sobre todo a que llegue el bus,
+  algo que el M/M/1 no modela (el servidor 'no existe' entre buses).
+
+Figuras: R_fig1_servicio_exponencial.png, R_fig2_poisson.png, R_fig3_cola_tiempo.png, R_fig4_comparacion.png
+rsanchez@Renes-MacBook-Air-M2 Tarea-2-IO % 
